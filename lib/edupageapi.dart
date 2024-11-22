@@ -3,6 +3,6 @@
 /// More dartdocs go here.
 library;
 
-export 'src/edupageapi_base.dart';
+export 'src/api.dart';
 
 // TODO: Export any libraries intended for clients of this package.
