@@ -29,6 +29,8 @@ class EPData {
   late Timeline timeline;
   late TimeTable timetable;
 
+  bool useCache = true;
+
   static EPData? _instance;
 
   EPData._privateConstructor();
@@ -40,61 +42,27 @@ class EPData {
 
   Future<bool> init({
     required Function(EPStatus) onProgressUpdate,
+    required String username,
+    required String password,
+    String? server,
+    bool quickstart = true,
+    String endpoint = "https://ep2.vypal.me",
+    bool cache = true,
   }) async {
     onProgressUpdate(EPStatus.loadingCredentials);
 
+    baseUrl = endpoint;
+    useCache = cache;
+
     sharedPreferences = await SharedPreferences.getInstance();
-
-    if (sharedPreferences.getBool("demo") ?? false) {
-      user = User(username: "demo", password: "demo", server: "demo");
-      user.name = "Demo User";
-      timeline = Timeline(homeworks: {}, items: {
-        "1234": TimelineItem(
-          id: '1234',
-          timestamp: DateTime.now(),
-          reactionTo: '',
-          type: 'sprava',
-          user: 'demo',
-          targetUser: 'demo',
-          userName: 'demo',
-          otherId: 'demo',
-          text: 'demo',
-          timeAdded: DateTime.now(),
-          timeEvent: DateTime.now(),
-          data: {
-            "Value": {"messageContent": null}
-          },
-          owner: 'demo',
-          ownerName: 'demo',
-          reactionCount: 0,
-          lastReaction: 'demo',
-          pomocnyZaznam: 'demo',
-          removed: 0,
-          timeAddedBTC: DateTime.now(),
-          lastReactionBTC: DateTime.now(),
-        ),
-      });
-      timetable = TimeTable();
-      return true;
-    }
-
-    bool quickstart = sharedPreferences.getBool("quickstart") ?? false;
-
-    String? endpoint = sharedPreferences.getString("customEndpoint");
-    if (endpoint != null && endpoint != "") {
-      baseUrl = endpoint;
-    } else {
-      baseUrl =
-          "https://ep2.vypal.me"; // TODO: Think of some way to dynamically load the endpoint
-    }
 
     bool isInternetAvailable = await isConnected();
 
-    user = (await User.loadFromCache()) ??
+    user = (cache ? await User.loadFromCache() : null) ??
         User(
-          username: sharedPreferences.getString("email") ?? "",
-          password: sharedPreferences.getString("password") ?? "",
-          server: sharedPreferences.getString("server") ?? "",
+          username: username,
+          password: password,
+          server: server,
         );
 
     if (isInternetAvailable && !quickstart) {
@@ -107,7 +75,7 @@ class EPData {
     }
     onProgressUpdate(EPStatus.loggedIn);
 
-    timeline = (await Timeline.loadFromCache()) ??
+    timeline = (cache ? await Timeline.loadFromCache() : null) ??
         Timeline(
           homeworks: {},
           items: {},
@@ -118,7 +86,7 @@ class EPData {
       await timeline.loadMessages();
     }
 
-    timetable = (await TimeTable.loadFromCache()) ?? TimeTable();
+    timetable = (cache ? await TimeTable.loadFromCache() : null) ?? TimeTable();
 
     if (isInternetAvailable && !quickstart) {
       onProgressUpdate(EPStatus.downloadingTimetable);
@@ -227,7 +195,7 @@ class User {
 
   final String username;
   final String password;
-  String server = "";
+  final String? server;
 
   String token = "";
   String name = "";
@@ -235,7 +203,7 @@ class User {
   User({
     required this.username,
     required this.password,
-    this.server = "",
+    this.server,
   });
 
   Future<bool> login() async {
@@ -245,7 +213,7 @@ class User {
         data: {
           "username": username,
           "password": password,
-          "server": server,
+          "server": server ?? "",
         },
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
@@ -305,6 +273,9 @@ class User {
   }
 
   Future<void> saveToCache() async {
+    if (!data.useCache) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final userJson = jsonEncode(toJson());
     await prefs.setString('user', userJson);
@@ -501,6 +472,9 @@ class TimeTable {
   }
 
   Future<void> saveToCache() async {
+    if (!data.useCache) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('timetable', jsonEncode(toJson()));
   }
@@ -1148,6 +1122,9 @@ class Timeline {
   }
 
   Future<void> saveToCache() async {
+    if (!data.useCache) {
+      return;
+    }
     final timelineJson = jsonEncode(toJson());
     await data.sharedPreferences.setString('timeline', timelineJson);
   }
